@@ -5,25 +5,25 @@
     <artifactId>zalupa</artifactId>
     <packaging>jar</packaging>
     <version>69</version>
-
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.2.5</version>
         <relativePath/>
     </parent>
-
     <name>zalupa</name>
     <url>http://maven.apache.org</url>
     <properties>
         <java.version>17</java.version>
         <start-class>itmo.rshd.hadoop.ZOVHadoopa</start-class>
         <spark.version>3.5.6</spark.version>
-        <iceberg.version>1.7.1</iceberg.version>
+        <iceberg.version>1.5.2</iceberg.version>
         <mongodb.spark.connector.version>10.5.0</mongodb.spark.connector.version>
         <aws.java.sdk.version>2.26.20</aws.java.sdk.version>
-        <hadoop.version>3.3.0</hadoop.version>
+        <hadoop.version>3.3.6</hadoop.version>
         <scala.binary.version>2.12</scala.binary.version>
+        <gson.version>2.10.1</gson.version>
+        <shade.prefix>shaded.iceberg</shade.prefix>
     </properties>
     <repositories>
         <repository>
@@ -58,12 +58,32 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
+        </dependency>
         <!-- Spark Core -->
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.binary.version}</artifactId>
             <version>${spark.version}</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.iceberg</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- Spark SQL -->
         <dependency>
@@ -80,17 +100,29 @@
         </dependency>
         <dependency>
             <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-aws</artifactId> <!-- NOT iceberg-aws-bundle -->
+            <artifactId>iceberg-core</artifactId>
             <version>${iceberg.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-common</artifactId>
+            <version>${iceberg.version}</version>
+        </dependency>
+        <!-- Iceberg AWS -->
+        <!--
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-aws</artifactId>
+            <version>${iceberg.version}</version>
+            <scope>provided</scope>
+        </dependency>-->
         <!-- MongoDB Spark Connector -->
         <dependency>
             <groupId>org.mongodb.spark</groupId>
             <artifactId>mongo-spark-connector_${scala.binary.version}</artifactId>
             <version>${mongodb.spark.connector.version}</version>
         </dependency>
-        <!-- AWS SDK for S3 -->
+        <!-- AWS SDK for S3 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
@@ -106,6 +138,7 @@
             <artifactId>netty-nio-client</artifactId>
             <version>${aws.java.sdk.version}</version>
         </dependency>
+        -->
         <!-- Hadoop client for S3A filesystem -->
         <dependency>
             <groupId>org.apache.hadoop</groupId>
@@ -136,11 +169,6 @@
             <groupId>me.paulschwarz</groupId>
             <artifactId>spring-dotenv</artifactId>
             <version>4.0.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <!-- Version is managed by spring-boot-starter-parent -->
         </dependency>
     </dependencies>
     <build>
@@ -190,6 +218,25 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <relocations>
+                        <relocation>
+                            <pattern>org.apache</pattern>
+                            <shadedPattern>${shade.prefix}.org.apache</shadedPattern>
+                        </relocation>
+                        <!-- Остальные релокации -->
+                        <relocation>
+                            <pattern>com.google.gson</pattern>
+                            <shadedPattern>shaded.com.google.gson</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>org.apache.iceberg</pattern>
+                            <shadedPattern>${shade.prefix}.apache.iceberg</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>com.github</pattern>
+                            <shadedPattern>${shade.prefix}.com.github</shadedPattern>
+                        </relocation>
+                    </relocations>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                     <filters>
                         <filter>
@@ -198,6 +245,8 @@
                                 <exclude>META-INF/*.SF</exclude>
                                 <exclude>META-INF/*.DSA</exclude>
                                 <exclude>META-INF/*.RSA</exclude>
+                                <exclude>module-info.class</exclude>
+                                <!-- ADD THIS LINE -->
                             </excludes>
                         </filter>
                     </filters>
